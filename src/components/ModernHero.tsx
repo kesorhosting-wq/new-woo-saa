@@ -1,15 +1,35 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSite } from '@/contexts/SiteContext';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Zap, Shield, Trophy } from 'lucide-react';
+import { ArrowRight, Zap, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  type CarouselApi,
+} from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
 
 const ModernHero: React.FC = () => {
   const { settings } = useSite();
+  const [api, setApi] = React.useState<CarouselApi>();
+  const [current, setCurrent] = React.useState(0);
+
+  const banners = settings.bannerImages && settings.bannerImages.length > 0 
+    ? settings.bannerImages 
+    : [settings.bannerImage || "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80"];
+
+  useEffect(() => {
+    if (!api) return;
+    api.on("select", () => {
+      setCurrent(api.selectedScrollSnap());
+    });
+  }, [api]);
 
   return (
-    <section className="relative min-h-[80vh] flex items-center pt-24 pb-12 bg-white overflow-hidden">
-      {/* Dynamic Background Image from Settings */}
+    <section className="relative min-h-[85vh] flex items-center pt-24 pb-12 bg-white overflow-hidden">
+      {/* Background Decor */}
       {settings.backgroundImage && (
         <div className="absolute inset-0 z-0 opacity-10">
            <img src={settings.backgroundImage} className="w-full h-full object-cover" alt="Background" />
@@ -17,44 +37,100 @@ const ModernHero: React.FC = () => {
       )}
 
       <div className="container mx-auto px-4 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          <div className="max-w-4xl">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-pink-50 border border-pink-100 text-[#FF2D85] text-xs font-black uppercase tracking-widest mb-8">
-              <Zap className="w-4 h-4 fill-[#FF2D85]" />
-              <span>{settings.siteName || 'WOO SAA'} Security Protocol Active</span>
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+          
+          {/* Text Content */}
+          <div className="lg:col-span-5 max-w-2xl">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-pink-50 border border-pink-100 text-[#FF2D85] text-[10px] font-black uppercase tracking-[0.2em] mb-8"
+            >
+              <Zap className="w-3.5 h-3.5 fill-[#FF2D85]" />
+              <span>{settings.siteName || 'WOO SAA'} Elite Protocol</span>
+            </motion.div>
             
-            <h1 className="text-5xl md:text-8xl font-black text-black leading-tight mb-8 tracking-tighter">
+            <motion.h1 
+              initial={{ opacity: 0, x: -30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+              className="text-5xl md:text-7xl font-black text-black leading-[0.9] mb-8 tracking-tighter uppercase"
+            >
               {settings.heroText || 'GET YOUR POWER LOAD'} <br />
               <span className="text-[#FF2D85]">INSTANTLY.</span>
-            </h1>
+            </motion.h1>
             
-            <p className="text-slate-600 text-lg md:text-2xl font-bold mb-12 max-w-2xl leading-relaxed uppercase">
-              Safe, Secure, and Lightning Fast top-ups for all your favorite games in Cambodia.
-            </p>
+            <motion.p 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="text-slate-500 text-lg font-bold mb-12 max-w-md leading-relaxed uppercase tracking-tight"
+            >
+              Experience the gold standard of game top-ups in Cambodia. Safe, secure, and ready when you are.
+            </motion.p>
 
-            <div className="flex flex-col sm:flex-row items-center gap-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
               <Button 
                 onClick={() => document.getElementById('games')?.scrollIntoView({ behavior: 'smooth' })}
-                className="h-16 px-12 bg-[#FF2D85] hover:bg-[#D81B60] text-white text-xl font-black rounded-2xl shadow-xl transition-all w-full sm:w-auto"
+                className="h-16 px-12 bg-[#FF2D85] hover:bg-[#D81B60] text-white text-lg font-black rounded-2xl shadow-2xl shadow-pink-200 group transition-all"
               >
-                BROWSE GAMES <ArrowRight className="ml-3 w-6 h-6" />
+                INITIATE SCAN <ArrowRight className="ml-3 w-6 h-6 group-hover:translate-x-2 transition-transform duration-500" />
               </Button>
-            </div>
+            </motion.div>
           </div>
 
-          <div className="hidden lg:block relative">
-             <div className="relative z-10 w-full aspect-square rounded-[4rem] overflow-hidden border-8 border-white shadow-2xl rotate-3 hover:rotate-0 transition-transform duration-700">
-                <img 
-                  src={settings.bannerImage || "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80"} 
-                  className="w-full h-full object-cover" 
-                  alt="Banner" 
-                />
-             </div>
-             {/* Decorative glows */}
-             <div className="absolute -top-10 -right-10 w-64 h-64 bg-pink-200/30 rounded-full blur-[100px] -z-10" />
-             <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-pink-100/20 rounded-full blur-[80px] -z-10" />
+          {/* Slider Content */}
+          <div className="lg:col-span-7 relative h-full">
+             <motion.div
+               initial={{ opacity: 0, scale: 0.9 }}
+               animate={{ opacity: 1, scale: 1 }}
+               transition={{ duration: 1 }}
+               className="relative z-10 w-full rounded-[3.5rem] overflow-hidden border-[12px] border-white shadow-[0_50px_100px_rgba(0,0,0,0.15)]"
+             >
+                <Carousel 
+                  setApi={setApi}
+                  plugins={[Autoplay({ delay: 4000 })]}
+                  className="w-full"
+                >
+                  <CarouselContent>
+                    {banners.map((url, idx) => (
+                      <CarouselItem key={idx}>
+                        <div className="aspect-[16/10] w-full overflow-hidden">
+                           <img 
+                             src={url} 
+                             className="w-full h-full object-cover transition-transform duration-[4000ms] hover:scale-110" 
+                             alt={`Banner ${idx + 1}`} 
+                           />
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                </Carousel>
+
+                {/* Progress Indicators */}
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3 z-20">
+                   {banners.map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => api?.scrollTo(idx)}
+                        className={cn(
+                          "h-1.5 transition-all duration-500 rounded-full",
+                          current === idx ? "w-8 bg-[#FF2D85]" : "w-3 bg-white/40 hover:bg-white/60"
+                        )}
+                      />
+                   ))}
+                </div>
+             </motion.div>
+
+             {/* Dynamic background glow based on current slide */}
+             <div className="absolute -top-20 -right-20 w-96 h-96 bg-[#FF2D85]/10 rounded-full blur-[120px] -z-10 animate-pulse" />
+             <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-pink-200/20 rounded-full blur-[100px] -z-10" />
           </div>
+
         </div>
       </div>
     </section>

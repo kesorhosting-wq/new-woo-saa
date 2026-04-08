@@ -16,7 +16,9 @@ import {
   Loader2,
   Phone,
   Mail,
-  Headset
+  Headset,
+  Images,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +48,21 @@ const AdminHome: React.FC = () => {
     setLocalSettings(prev => ({ ...prev, [key]: value }));
   };
 
+  const addBannerImage = (url: string) => {
+    const currentBanners = localSettings.bannerImages || [];
+    if (currentBanners.length >= 10) {
+      toast({ title: "Limit Reached", description: "Maximum of 10 banners allowed.", variant: "destructive" });
+      return;
+    }
+    updateField('bannerImages', [...currentBanners, url]);
+  };
+
+  const removeBannerImage = (index: number) => {
+    const currentBanners = localSettings.bannerImages || [];
+    const nextBanners = currentBanners.filter((_, i) => i !== index);
+    updateField('bannerImages', nextBanners);
+  };
+
   return (
     <div className="space-y-12 text-black pb-24">
       <div className="flex flex-col md:flex-row items-center justify-between gap-8">
@@ -65,7 +82,7 @@ const AdminHome: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
          
          <div className="lg:col-span-7 space-y-10">
-            {/* Brand & Meta */}
+            {/* Brand & Identity */}
             <section className="bg-white border-2 border-pink-100 rounded-[3rem] p-10 shadow-sm space-y-10">
                <div className="flex items-center gap-5">
                   <div className="w-12 h-12 bg-pink-50 rounded-2xl flex items-center justify-center text-[#FF2D85]">
@@ -105,33 +122,58 @@ const AdminHome: React.FC = () => {
                </div>
             </section>
 
-            {/* Visual Assets */}
+            {/* Banner Slider System */}
             <section className="bg-white border-2 border-pink-100 rounded-[3rem] p-10 shadow-sm space-y-10">
-               <div className="flex items-center gap-5">
-                  <div className="w-12 h-12 bg-pink-50 rounded-2xl flex items-center justify-center text-[#FF2D85]">
-                     <Layout className="w-6 h-6" />
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-5">
+                     <div className="w-12 h-12 bg-pink-50 rounded-2xl flex items-center justify-center text-[#FF2D85]">
+                        <Images className="w-6 h-6" />
+                     </div>
+                     <div>
+                        <h3 className="text-xl font-black uppercase tracking-tight text-[#3D001F]">Hero Slider Node</h3>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Multi-image injection protocol ({localSettings.bannerImages?.length || 0}/10)</p>
+                     </div>
                   </div>
-                  <h3 className="text-xl font-black uppercase tracking-tight text-[#3D001F]">Visual Assets</h3>
                </div>
 
                <div className="space-y-8">
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                     {localSettings.bannerImages?.map((url, idx) => (
+                        <div key={idx} className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-slate-100 shadow-sm">
+                           <img src={url} className="w-full h-full object-cover" />
+                           <button 
+                              onClick={() => removeBannerImage(idx)}
+                              className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                           >
+                              <X className="w-3.5 h-3.5" />
+                           </button>
+                           <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[8px] font-black text-center py-1 uppercase">Node 0{idx+1}</div>
+                        </div>
+                     ))}
+                     {(localSettings.bannerImages?.length || 0) < 10 && (
+                        <div className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 hover:border-[#FF2D85] hover:bg-pink-50 transition-all cursor-pointer overflow-hidden relative">
+                           <ImageUpload 
+                              value="" 
+                              onChange={(url) => addBannerImage(url)} 
+                              folder="banners"
+                           />
+                           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none bg-white/50">
+                              <Plus className="w-6 h-6 text-slate-300" />
+                              <span className="text-[8px] font-black uppercase text-slate-400">Add Node</span>
+                           </div>
+                        </div>
+                     )}
+                  </div>
+                  
+                  <div className="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100 space-y-4">
                      <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-                        <Type className="w-3 h-3" /> Hero Primary Text
+                        <Type className="w-3 h-3 text-[#FF2D85]" /> Hero Primary Text
                      </Label>
                      <Input 
                         value={localSettings.heroText}
                         onChange={(e) => updateField('heroText', e.target.value)}
-                        className="h-14 bg-slate-50 border-slate-100 rounded-2xl px-6 font-bold" 
+                        className="h-14 bg-white border-slate-200 rounded-xl font-black text-black px-6" 
                      />
-                  </div>
-                  <div className="space-y-3">
-                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Main Hero Banner</Label>
-                     <ImageUpload value={localSettings.bannerImage} onChange={(url) => updateField('bannerImage', url)} folder="settings" />
-                  </div>
-                  <div className="space-y-3">
-                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Global Background Node</Label>
-                     <ImageUpload value={localSettings.backgroundImage} onChange={(url) => updateField('backgroundImage', url)} folder="settings" />
                   </div>
                </div>
             </section>
@@ -155,7 +197,7 @@ const AdminHome: React.FC = () => {
                         <Input 
                            value={localSettings.supportPhone}
                            onChange={(e) => updateField('supportPhone', e.target.value)}
-                           className="bg-transparent border-none shadow-none font-bold"
+                           className="bg-transparent border-none shadow-none font-bold text-black"
                         />
                      </div>
                   </div>
@@ -166,48 +208,26 @@ const AdminHome: React.FC = () => {
                         <Input 
                            value={localSettings.supportEmail}
                            onChange={(e) => updateField('supportEmail', e.target.value)}
-                           className="bg-transparent border-none shadow-none font-bold"
+                           className="bg-transparent border-none shadow-none font-bold text-black"
                         />
                      </div>
                   </div>
                </div>
             </section>
 
-            {/* Footer Terminal */}
+            {/* Visual Settings */}
             <section className="bg-white border-2 border-pink-100 rounded-[3rem] p-10 shadow-sm space-y-10">
                <div className="flex items-center gap-5">
                   <div className="w-12 h-12 bg-pink-50 rounded-2xl flex items-center justify-center text-[#FF2D85]">
-                     <Palette className="w-6 h-6" />
+                     <Layout className="w-6 h-6" />
                   </div>
-                  <h3 className="text-xl font-black uppercase tracking-tight text-[#3D001F]">Footer Node</h3>
+                  <h3 className="text-xl font-black uppercase tracking-tight text-[#3D001F]">Site Skin</h3>
                </div>
 
-               <div className="space-y-6">
+               <div className="space-y-8">
                   <div className="space-y-3">
-                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Catchphrase</Label>
-                     <Textarea 
-                        value={localSettings.footerText}
-                        onChange={(e) => updateField('footerText', e.target.value)}
-                        className="min-h-[100px] bg-slate-50 border-slate-100 rounded-2xl p-6 font-bold"
-                     />
-                  </div>
-
-                  <div className="space-y-4 pt-6 border-t border-slate-50">
-                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Social Directory</Label>
-                     <div className="space-y-4">
-                        <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                           <Facebook className="w-5 h-5 text-[#FF2D85]" />
-                           <Input value={localSettings.footerFacebookUrl} onChange={(e) => updateField('footerFacebookUrl', e.target.value)} className="bg-transparent border-none shadow-none font-bold" />
-                        </div>
-                        <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                           <Send className="w-5 h-5 text-[#FF2D85]" />
-                           <Input value={localSettings.footerTelegramUrl} onChange={(e) => updateField('footerTelegramUrl', e.target.value)} className="bg-transparent border-none shadow-none font-bold" />
-                        </div>
-                        <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                           <Zap className="w-5 h-5 text-[#FF2D85]" />
-                           <Input value={localSettings.footerTiktokUrl} onChange={(e) => updateField('footerTiktokUrl', e.target.value)} className="bg-transparent border-none shadow-none font-bold" />
-                        </div>
-                     </div>
+                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Global Background Node</Label>
+                     <ImageUpload value={localSettings.backgroundImage} onChange={(url) => updateField('backgroundImage', url)} folder="settings" />
                   </div>
                </div>
             </section>

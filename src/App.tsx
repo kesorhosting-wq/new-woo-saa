@@ -40,7 +40,7 @@ const App = () => (
                     <Route path="/history" element={<OrderHistoryPage />} />
                     <Route path="/wallet" element={<WalletPage />} />
                     <Route path="/auth" element={<AuthPage />} />
-                    <Route path="/privacy" element={<div className="min-h-screen bg-background flex items-center justify-center font-black uppercase tracking-widest text-white/20">Privacy Protocol Terminal</div>} />
+                    <Route path="/privacy" element={<div className="min-h-screen bg-white flex items-center justify-center font-black uppercase tracking-widest text-black/20">Privacy Protocol Terminal</div>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </TooltipProvider>

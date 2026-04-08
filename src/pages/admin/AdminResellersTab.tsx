@@ -120,11 +120,21 @@ const AdminResellersTab: React.FC = () => {
       }
 
       // Add to user_roles
-      const { error: roleError } = await supabase
+      // First check if already has the role to avoid duplicate errors
+      const { data: existingRole } = await supabase
         .from('user_roles')
-        .upsert({ user_id: profileData.id, role: 'reseller' }, { onConflict: 'user_id' });
+        .select('id')
+        .eq('user_id', profileData.id)
+        .eq('role', 'reseller')
+        .maybeSingle();
 
-      if (roleError) throw roleError;
+      if (!existingRole) {
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({ user_id: profileData.id, role: 'reseller' });
+
+        if (roleError) throw roleError;
+      }
 
       toast({ title: 'Reseller Added Successfully' });
       setSearchEmail('');
@@ -140,13 +150,30 @@ const AdminResellersTab: React.FC = () => {
     try {
       const newKey = 'sk_live_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       
-      const { error } = await supabase
+      // Check if exists first to avoid constraint errors
+      const { data: existing } = await supabase
         .from('reseller_api_keys')
-        .upsert({ 
-          user_id: userId, 
-          api_key: newKey,
-          is_active: true
-        }, { onConflict: 'user_id' });
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      let error;
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from('reseller_api_keys')
+          .update({ api_key: newKey, is_active: true })
+          .eq('user_id', userId);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('reseller_api_keys')
+          .insert({ 
+            user_id: userId, 
+            api_key: newKey,
+            is_active: true
+          });
+        error = insertError;
+      }
 
       if (error) throw error;
       

@@ -1,0 +1,17 @@
+server {
+    listen 9090;
+    server_name _;
+
+    root /root/woo-saa-modern/remix-of-tukluk/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Static assets caching
+    location /assets {
+        expires 1y;
+        add_header Cache-Control "public, no-transform";
+    }
+}

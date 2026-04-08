@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, Loader2, Image as ImageIcon, LucideIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,7 @@ interface ImageUploadProps {
   className?: string;
   aspectRatio?: 'square' | 'wide' | 'tall';
   placeholder?: string;
+  icon?: LucideIcon;
 }
 
 const ImageUpload: React.FC<ImageUploadProps> = ({
@@ -20,7 +21,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   folder = 'general',
   className,
   aspectRatio = 'square',
-  placeholder = 'Upload Image'
+  placeholder = 'Upload Image',
+  icon: CustomIcon
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -30,6 +32,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     wide: 'aspect-video',
     tall: 'aspect-[3/4]'
   };
+
+  const Icon = CustomIcon || Upload;
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -115,7 +119,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   };
 
   return (
-    <div className={cn('relative', className)}>
+    <div className={cn('relative w-full', className)}>
       <input
         ref={inputRef}
         type="file"
@@ -126,7 +130,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       
       <div 
         className={cn(
-          'relative rounded-xl border-2 border-dashed border-gold/50 bg-secondary/30 overflow-hidden transition-colors hover:border-gold cursor-pointer',
+          'relative w-full rounded-xl border-2 border-dashed border-gold/50 bg-secondary/30 overflow-hidden transition-colors hover:border-gold cursor-pointer',
           aspectClasses[aspectRatio]
         )}
         onClick={() => !isUploading && inputRef.current?.click()}
@@ -158,7 +162,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             ) : (
               <>
                 <div className="w-12 h-12 rounded-full bg-gold/20 flex items-center justify-center">
-                  <Upload className="w-6 h-6 text-gold" />
+                  <Icon className="w-6 h-6 text-gold" />
                 </div>
                 <span className="text-sm font-medium">{placeholder}</span>
                 <span className="text-xs">Click to upload</span>

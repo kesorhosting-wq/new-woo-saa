@@ -32,6 +32,10 @@ const AdminHome: React.FC = () => {
   const [localSettings, setLocalSettings] = useState<SiteSettings>(settings);
   const [isSaving, setIsSaving] = useState(false);
 
+  React.useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -151,16 +155,15 @@ const AdminHome: React.FC = () => {
                         </div>
                      ))}
                      {(localSettings.bannerImages?.length || 0) < 10 && (
-                        <div className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 hover:border-[#FF2D85] hover:bg-pink-50 transition-all cursor-pointer overflow-hidden relative">
+                        <div className="aspect-square">
                            <ImageUpload 
                               value="" 
                               onChange={(url) => addBannerImage(url)} 
                               folder="banners"
+                              placeholder="Add Node"
+                              icon={Plus}
+                              className="h-full"
                            />
-                           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none bg-white/50">
-                              <Plus className="w-6 h-6 text-slate-300" />
-                              <span className="text-[8px] font-black uppercase text-slate-400">Add Node</span>
-                           </div>
                         </div>
                      )}
                   </div>

@@ -37,6 +37,7 @@ export interface SiteSettings {
   browserTitle: string;
   siteIcon: string;
   bannerImage: string;
+  bannerImages: string[];
   backgroundImage: string;
   footerText: string;
   footerFacebookUrl: string;
@@ -73,6 +74,7 @@ const defaultSettings: SiteSettings = {
   browserTitle: 'Woo Saa Topup - Game Topup Cambodia',
   siteIcon: '',
   bannerImage: '',
+  bannerImages: [],
   backgroundImage: '',
   footerText: '',
   footerFacebookUrl: '',
@@ -104,8 +106,28 @@ export const SiteProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (settingsResult.data) {
         const loaded: any = {};
         settingsResult.data.forEach(r => {
-          if (r && r.key) loaded[r.key] = r.value;
+          if (r && r.key) {
+            let value = r.value;
+            // Handle array/object types if they are stored as strings
+            if (typeof value === 'string' && (value.startsWith('[') || value.startsWith('{'))) {
+              try {
+                value = JSON.parse(value);
+              } catch (e) {
+                // Not JSON, keep as string
+              }
+            }
+            loaded[r.key] = value;
+          }
         });
+        
+        // Ensure bannerImages is always an array
+        if (loaded.bannerImages && !Array.isArray(loaded.bannerImages)) {
+          loaded.bannerImages = [];
+        }
+        if (loaded.footerPaymentIcons && !Array.isArray(loaded.footerPaymentIcons)) {
+          loaded.footerPaymentIcons = [];
+        }
+
         setSettings(prev => ({ ...prev, ...loaded }));
       }
 

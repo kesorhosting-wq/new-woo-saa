@@ -42,7 +42,7 @@ const App = () => (
                     <Route path="/wallet" element={<WalletPage />} />
                     <Route path="/auth" element={<AuthPage />} />
                     <Route path="/api-docs" element={<DocsPage />} />
-                    <Route path="/docs" element={<DocsPage />} />
+                    <Route path="/docs/*" element={<DocsPage />} />
                     <Route path="/privacy" element={<div className="min-h-screen bg-white flex items-center justify-center font-black uppercase tracking-widest text-black/20">Privacy Protocol Terminal</div>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>

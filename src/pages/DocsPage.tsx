@@ -1,19 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ModernHeader from '@/components/ModernHeader';
 import ModernFooter from '@/components/ModernFooter';
 import { useSite } from '@/contexts/SiteContext';
 import { Helmet } from 'react-helmet-async';
-import { Terminal, Key, ShieldCheck, Zap, Copy, CheckCircle2, BookOpen, Wallet, CreditCard, ShoppingCart } from 'lucide-react';
+import { 
+  Terminal, Key, ShieldCheck, Zap, Copy, CheckCircle2, BookOpen, 
+  Wallet, CreditCard, ShoppingCart, ChevronRight, Menu, X, 
+  Globe, Layout, Activity, Database, AlertTriangle, Info, Server
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Tabs, TabsContent, List, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const DocsPage: React.FC = () => {
   const { settings } = useSite();
   const { toast } = useToast();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('user');
+
+  // Determine current section from URL
+  const path = location.pathname.split('/').pop() || 'docs';
+  const activeSection = path === 'docs' ? 'user' : path;
 
   const copyCode = (code: string, section: string) => {
     navigator.clipboard.writeText(code);
@@ -22,201 +33,336 @@ const DocsPage: React.FC = () => {
     setTimeout(() => setCopiedSection(null), 2000);
   };
 
-  const getGamesCode = `curl -X POST https://[PROJECT_REF].supabase.co/functions/v1/reseller-api/get-games \\
-  -H "x-api-key: your_api_key_here" \\
-  -H "Content-Type: application/json"`;
+  const menuItems = [
+    { id: 'user', name: 'User Guide', icon: <BookOpen className="w-4 h-4" />, path: '/docs' },
+    { id: 'api', name: 'General API', icon: <Terminal className="w-4 h-4" />, path: '/docs/api' },
+    { id: 'smm', name: 'SMM Protocol', icon: <Zap className="w-4 h-4" />, path: '/docs/smm' },
+  ];
 
-  const getPackagesCode = `curl -X POST https://[PROJECT_REF].supabase.co/functions/v1/reseller-api/get-packages \\
-  -H "x-api-key: your_api_key_here" \\
-  -H "Content-Type: application/json" \\
-  -d '{"game_id": "uuid-of-game"}'`;
+  const sidebarLinks = {
+    user: [
+      { id: 'intro', name: 'Introduction' },
+      { id: 'wallet', name: 'Wallet Deposits' },
+      { id: 'orders', name: 'Placing Orders' },
+    ],
+    api: [
+      { id: 'auth', name: 'Authentication' },
+      { id: 'games', name: 'Get Games' },
+      { id: 'packages', name: 'Get Packages' },
+      { id: 'purchase', name: 'Place Order' },
+    ],
+    smm: [
+      { id: 'smm-intro', name: 'SMM Integration' },
+      { id: 'smm-balance', name: 'Check Balance' },
+      { id: 'smm-services', name: 'SMM Services' },
+    ]
+  };
 
-  const placeOrderCode = `curl -X POST https://[PROJECT_REF].supabase.co/functions/v1/reseller-api/place-order \\
-  -H "x-api-key: your_api_key_here" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "game_id": "uuid-of-game",
-    "package_id": "uuid-of-package",
-    "player_id": "12345678",
-    "zone_id": "1234"
-  }'`;
+  const scrollToId = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setIsSidebarOpen(false);
+    }
+  };
 
   return (
     <>
       <Helmet>
-        <title>Documentation | {settings.siteName}</title>
+        <title>Developer Docs | {settings.siteName}</title>
       </Helmet>
       
-      <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 selection:bg-pink-100 selection:text-[#FF2D85]">
+      <div className="min-h-screen flex flex-col bg-white text-slate-900 selection:bg-[#FF2D85] selection:text-white">
         <ModernHeader />
         
-        <main className="flex-1 pt-32 pb-24">
-          <div className="container mx-auto px-4 max-w-5xl">
-             
-            {/* Header */}
-            <div className="mb-12 text-center">
-               <h1 className="text-4xl md:text-5xl font-black mb-4 tracking-tighter uppercase text-[#3D001F]">Knowledge Base</h1>
-               <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Everything you need to know about {settings.siteName || 'WOO SAA'}</p>
+        <div className="flex-1 flex pt-24">
+          
+          {/* Sidebar */}
+          <aside className={cn(
+            "fixed inset-y-0 left-0 z-40 w-72 bg-slate-50 border-r border-slate-100 pt-24 transition-transform lg:translate-x-0 lg:static lg:block",
+            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          )}>
+            <div className="h-full overflow-y-auto px-6 py-8">
+              
+              <div className="mb-10">
+                 <h5 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-6 px-3">Protocol Selection</h5>
+                 <div className="space-y-1">
+                    {menuItems.map((item) => (
+                       <button
+                         key={item.id}
+                         onClick={() => navigate(item.path)}
+                         className={cn(
+                           "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                           activeSection === item.id 
+                             ? "bg-[#FF2D85] text-white shadow-lg shadow-pink-200" 
+                             : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                         )}
+                       >
+                          {item.icon}
+                          {item.name}
+                       </button>
+                    ))}
+                 </div>
+              </div>
+
+              <div>
+                 <h5 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-6 px-3">Current Section</h5>
+                 <div className="space-y-1 border-l-2 border-slate-100 ml-3">
+                    {sidebarLinks[activeSection as keyof typeof sidebarLinks]?.map((link) => (
+                       <button
+                         key={link.id}
+                         onClick={() => scrollToId(link.id)}
+                         className="w-full flex items-center gap-3 px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-[#FF2D85] transition-all text-left"
+                       >
+                          {link.name}
+                       </button>
+                    ))}
+                 </div>
+              </div>
+
             </div>
+          </aside>
 
-            <Tabs defaultValue="user" onValueChange={setActiveTab} className="space-y-12">
-               <div className="flex justify-center">
-                  <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm inline-flex">
-                     <TabsTrigger 
-                        value="user" 
-                        className={cn(
-                           "px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                           activeTab === 'user' ? "bg-[#FF2D85] text-white shadow-lg shadow-pink-200" : "text-slate-400 hover:text-slate-600"
-                        )}
-                     >
-                        <BookOpen className="w-4 h-4 mr-2" /> User Guide
-                     </TabsTrigger>
-                     <TabsTrigger 
-                        value="api" 
-                        className={cn(
-                           "px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                           activeTab === 'api' ? "bg-[#FF2D85] text-white shadow-lg shadow-pink-200" : "text-slate-400 hover:text-slate-600"
-                        )}
-                     >
-                        <Terminal className="w-4 h-4 mr-2" /> Developer API
-                     </TabsTrigger>
-                  </div>
-               </div>
+          {/* Main Content */}
+          <main className="flex-1 min-w-0 bg-white">
+             <div className="max-w-5xl mx-auto px-8 md:px-16 py-12">
+                
+                {/* Mobile Sidebar Toggle */}
+                <button 
+                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  className="lg:hidden fixed bottom-8 right-8 z-50 w-14 h-14 bg-[#FF2D85] text-white rounded-full shadow-2xl flex items-center justify-center transition-transform active:scale-90"
+                >
+                   {isSidebarOpen ? <X /> : <Menu />}
+                </button>
 
-               {/* USER GUIDE CONTENT */}
-               <TabsContent value="user" className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                     <section className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-6">
-                        <div className="w-14 h-14 bg-pink-50 text-[#FF2D85] rounded-2xl flex items-center justify-center">
-                           <Wallet className="w-7 h-7" />
-                        </div>
-                        <h3 className="text-2xl font-black uppercase tracking-tight">How to Top-up Wallet</h3>
-                        <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                           Follow these simple steps to add credit to your account:
-                        </p>
-                        <ul className="space-y-4">
-                           {[
-                              "Navigate to the 'Wallet' page from the top menu.",
-                              "Enter the amount you wish to deposit (Min $1.00).",
-                              "Click 'Top Up Now' to generate a secure KHQR node.",
-                              "Open your mobile banking app (ABA, ACLEDA, etc.) and scan the QR.",
-                              "Funds will be credited instantly once the transaction is verified."
-                           ].map((step, idx) => (
-                              <li key={idx} className="flex gap-4">
-                                 <span className="flex-shrink-0 w-6 h-6 bg-slate-900 text-white rounded-full flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
-                                 <span className="text-xs font-bold text-slate-600 uppercase tracking-tight">{step}</span>
-                              </li>
-                           ))}
-                        </ul>
-                     </section>
+                {activeSection === 'user' && (
+                   <div className="space-y-24 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                      <section id="intro" className="space-y-6">
+                         <Badge className="bg-pink-50 text-[#FF2D85] border-pink-100 font-black text-[10px] uppercase tracking-[0.2em] px-4 py-1.5 rounded-full mb-4">
+                            Operational Guide v1.0
+                         </Badge>
+                         <h2 className="text-5xl font-black tracking-tighter uppercase text-[#3D001F] leading-none">The Lobby Protocol</h2>
+                         <p className="text-slate-500 text-lg font-medium max-w-2xl leading-relaxed">
+                            Welcome to the {settings.siteName} ecosystem. This guide details how to navigate our infrastructure, manage your digital assets, and execute game load transmissions.
+                         </p>
+                      </section>
 
-                     <section className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-6">
-                        <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
-                           <ShoppingCart className="w-7 h-7" />
-                        </div>
-                        <h3 className="text-2xl font-black uppercase tracking-tight">Instant Game Load</h3>
-                        <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                           Using your wallet balance for game top-ups:
-                        </p>
-                        <ul className="space-y-4">
-                           {[
-                              "Select your favorite game from the Home Lobby.",
-                              "Choose the desired package and enter your Player ID.",
-                              "During checkout, select 'Wallet' as your payment method.",
-                              "Confirm the transaction to initiate the injection protocol.",
-                              "Check your game account - your items will arrive instantly!"
-                           ].map((step, idx) => (
-                              <li key={idx} className="flex gap-4">
-                                 <span className="flex-shrink-0 w-6 h-6 bg-slate-900 text-white rounded-full flex items-center justify-center text-[10px] font-black">{idx + 1}</span>
-                                 <span className="text-xs font-bold text-slate-600 uppercase tracking-tight">{step}</span>
-                              </li>
-                           ))}
-                        </ul>
-                     </section>
-                  </div>
+                      <section id="wallet" className="space-y-10">
+                         <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-[#FF2D85] rounded-2xl flex items-center justify-center text-white shadow-lg shadow-pink-200">
+                               <Wallet className="w-6 h-6" />
+                            </div>
+                            <h3 className="text-3xl font-black uppercase tracking-tight text-[#3D001F]">Asset Accumulation</h3>
+                         </div>
+                         
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="bg-slate-50 border border-slate-100 rounded-[2.5rem] p-8 space-y-4 hover:border-pink-200 transition-colors">
+                               <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-slate-400">01</div>
+                               <h4 className="font-black uppercase text-sm tracking-widest">Generate Node</h4>
+                               <p className="text-xs text-slate-500 font-bold uppercase leading-relaxed tracking-tight">Navigate to Wallet Terminal and enter deposit amount. Minimum protocol requirement is $1.00.</p>
+                            </div>
+                            <div className="bg-slate-50 border border-slate-100 rounded-[2.5rem] p-8 space-y-4 hover:border-pink-200 transition-colors">
+                               <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-slate-400">02</div>
+                               <h4 className="font-black uppercase text-sm tracking-widest">Execute Payment</h4>
+                               <p className="text-xs text-slate-500 font-bold uppercase leading-relaxed tracking-tight">Scan the generated KHQR with any verified Bakong application. Verification is real-time.</p>
+                            </div>
+                         </div>
+                      </section>
 
-                  <div className="bg-[#FF2D85] rounded-[3rem] p-12 text-white relative overflow-hidden text-center shadow-2xl shadow-pink-200">
-                     <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
-                     <h3 className="text-3xl font-black uppercase mb-4 relative z-10">Need Assistance?</h3>
-                     <p className="text-white/80 font-bold uppercase tracking-widest text-xs mb-8 relative z-10">Our support operators are standing by 24/7 to assist with your transmissions.</p>
-                     <Button className="bg-white text-[#FF2D85] hover:bg-slate-50 font-black uppercase text-[10px] tracking-[0.2em] px-10 h-14 rounded-xl relative z-10">
-                        Contact Support Protocol
-                     </Button>
-                  </div>
-               </TabsContent>
+                      <section id="orders" className="space-y-10">
+                         <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
+                               <ShoppingCart className="w-6 h-6" />
+                            </div>
+                            <h3 className="text-3xl font-black uppercase tracking-tight text-[#3D001F]">Transmission Log</h3>
+                         </div>
+                         <div className="bg-slate-900 rounded-[3rem] p-12 text-white relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-12 opacity-5">
+                               <Activity className="w-64 h-64" />
+                            </div>
+                            <div className="relative z-10 space-y-6">
+                               <p className="text-sm font-bold uppercase tracking-[0.2em] text-blue-400">Step-by-Step Execution</p>
+                               <div className="space-y-4">
+                                  {[
+                                     "Identify target game node in the primary lobby",
+                                     "Select load package and specify Identity ID",
+                                     "Select 'Wallet' as the funding gateway",
+                                     "Confirm and wait for injection status code"
+                                  ].map((step, i) => (
+                                     <div key={i} className="flex items-center gap-4">
+                                        <div className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-[10px] font-black">{i+1}</div>
+                                        <span className="text-xs font-black uppercase tracking-widest text-slate-300">{step}</span>
+                                     </div>
+                                  ))}
+                               </div>
+                            </div>
+                         </div>
+                      </section>
+                   </div>
+                )}
 
-               {/* API CONTENT */}
-               <TabsContent value="api" className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                     <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                        <Key className="w-8 h-8 text-[#FF2D85] mb-4" />
-                        <h3 className="font-black uppercase tracking-tight mb-2">Authentication</h3>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
-                           Include your unique API Key in the <code className="bg-slate-100 px-1 py-0.5 rounded text-[#FF2D85]">x-api-key</code> header.
-                        </p>
-                     </div>
-                     <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                        <Zap className="w-8 h-8 text-blue-500 mb-4" />
-                        <h3 className="font-black uppercase tracking-tight mb-2">Reseller Rates</h3>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
-                           Endpoints return prices with your negotiated global reseller discount automatically applied.
-                        </p>
-                     </div>
-                     <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                        <ShieldCheck className="w-8 h-8 text-green-500 mb-4" />
-                        <h3 className="font-black uppercase tracking-tight mb-2">Atomic Balance</h3>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
-                           Transactions are deducted from your Main Wallet. Fails securely if funds are insufficient.
-                        </p>
-                     </div>
-                  </div>
+                {activeSection === 'api' && (
+                   <div className="space-y-24 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                      <section id="auth" className="space-y-8">
+                         <h2 className="text-5xl font-black tracking-tighter uppercase text-[#3D001F] leading-none">Core Authentication</h2>
+                         <p className="text-slate-500 text-lg font-medium leading-relaxed max-w-2xl">
+                            The Reseller API uses specialized security headers to authorize your transmissions. Protect your API keys as you would your main assets.
+                         </p>
+                         
+                         <div className="bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] p-10 space-y-6">
+                            <div className="flex items-center gap-4">
+                               <div className="px-3 py-1 bg-slate-900 text-white text-[10px] font-black uppercase rounded tracking-widest">Header</div>
+                               <code className="text-sm font-black text-[#FF2D85]">x-api-key</code>
+                            </div>
+                            <div className="p-6 bg-white rounded-2xl border border-slate-200">
+                               <pre className="text-xs font-mono text-slate-600">x-api-key: sk_live_4f8e...2a1b</pre>
+                            </div>
+                            <div className="flex items-start gap-4 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                               <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                               <span>Never expose your API key in client-side code. All transmissions must be executed server-to-server.</span>
+                            </div>
+                         </div>
+                      </section>
 
-                  <div className="space-y-12">
-                     <section className="bg-white border-2 border-slate-100 rounded-[2.5rem] overflow-hidden shadow-sm">
-                        <div className="bg-slate-900 px-8 py-4 flex items-center justify-between">
-                           <div className="flex items-center gap-3">
-                              <span className="px-2 py-1 bg-green-500/20 text-green-400 text-[10px] font-black uppercase rounded tracking-widest">POST</span>
-                              <span className="text-white font-mono text-sm">/reseller-api/get-games</span>
-                           </div>
-                        </div>
-                        <div className="p-8">
-                           <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Fetch all available game catalogs and their required player ID parameters.</p>
-                           <div className="relative">
-                              <pre className="bg-slate-50 border border-slate-100 p-4 rounded-xl text-[10px] font-mono text-slate-700 overflow-x-auto leading-relaxed">
-                                 {getGamesCode}
-                              </pre>
-                              <button onClick={() => copyCode(getGamesCode, 'games')} className="absolute top-2 right-2 p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-100">
-                                 {copiedSection === 'games' ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-slate-400" />}
-                              </button>
-                           </div>
-                        </div>
-                     </section>
+                      <section id="games" className="space-y-8">
+                         <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                               <div className="px-3 py-1.5 bg-green-500 text-white text-[10px] font-black uppercase rounded-lg tracking-widest shadow-lg shadow-green-100">POST</div>
+                               <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 font-mono">/get-games</h3>
+                            </div>
+                         </div>
+                         <p className="text-sm text-slate-500 font-bold uppercase tracking-widest leading-relaxed">Fetch the full catalog of available gaming nodes and their required identity parameters.</p>
+                         
+                         <div className="bg-slate-900 rounded-[2rem] overflow-hidden group">
+                            <div className="px-6 py-3 bg-slate-800 flex items-center justify-between">
+                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Request Example</span>
+                               <button onClick={() => copyCode('curl -X POST...', 'get-games')} className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 transition-colors">
+                                  {copiedSection === 'get-games' ? <CheckCircle2 className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                               </button>
+                            </div>
+                            <pre className="p-8 text-[10px] font-mono text-blue-400 overflow-x-auto leading-relaxed">
+{`curl -X POST https://api.woosaa.com/functions/v1/reseller-api/get-games \\
+  -H "x-api-key: your_api_key_here" \\
+  -H "Content-Type: application/json"`}
+                            </pre>
+                         </div>
+                      </section>
 
-                     <section className="bg-white border-2 border-slate-100 rounded-[2.5rem] overflow-hidden shadow-sm">
-                        <div className="bg-slate-900 px-8 py-4 flex items-center justify-between">
-                           <div className="flex items-center gap-3">
-                              <span className="px-2 py-1 bg-green-500/20 text-green-400 text-[10px] font-black uppercase rounded tracking-widest">POST</span>
-                              <span className="text-white font-mono text-sm">/reseller-api/place-order</span>
-                           </div>
-                        </div>
-                        <div className="p-8">
-                           <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Deduct from your wallet and place a top-up order into the system queue.</p>
-                           <div className="relative">
-                              <pre className="bg-slate-50 border border-slate-100 p-4 rounded-xl text-[10px] font-mono text-slate-700 overflow-x-auto leading-relaxed">
-                                 {placeOrderCode}
-                              </pre>
-                              <button onClick={() => copyCode(placeOrderCode, 'order')} className="absolute top-2 right-2 p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-100">
-                                 {copiedSection === 'order' ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-slate-400" />}
-                              </button>
-                           </div>
-                        </div>
-                     </section>
-                  </div>
-               </TabsContent>
-            </Tabs>
+                      <section id="purchase" className="space-y-8">
+                         <div className="flex items-center gap-4">
+                            <div className="px-3 py-1.5 bg-green-500 text-white text-[10px] font-black uppercase rounded-lg tracking-widest shadow-lg shadow-green-100">POST</div>
+                            <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 font-mono">/place-order</h3>
+                         </div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                            <div className="space-y-6">
+                               <p className="text-sm text-slate-500 font-bold uppercase tracking-widest leading-relaxed">Execute an atomic injection of game assets. This deducts instantly from your wallet balance.</p>
+                               <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+                                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Body Parameters</h5>
+                                  <div className="space-y-3">
+                                     <div className="flex justify-between items-center"><code className="text-[10px] font-black text-[#FF2D85]">game_id</code><span className="text-[8px] font-bold text-slate-400">UUID</span></div>
+                                     <div className="flex justify-between items-center"><code className="text-[10px] font-black text-[#FF2D85]">package_id</code><span className="text-[8px] font-bold text-slate-400">UUID</span></div>
+                                     <div className="flex justify-between items-center"><code className="text-[10px] font-black text-[#FF2D85]">player_id</code><span className="text-[8px] font-bold text-slate-400">STRING</span></div>
+                                  </div>
+                               </div>
+                            </div>
+                            <div className="bg-slate-900 rounded-[2rem] overflow-hidden">
+                               <div className="px-6 py-3 bg-slate-800 flex items-center justify-between">
+                                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">JSON Schema</span>
+                               </div>
+                               <pre className="p-8 text-[10px] font-mono text-green-400 overflow-x-auto leading-relaxed">
+{`{
+  "game_id": "8f2b...",
+  "package_id": "c1a9...",
+  "player_id": "12345678",
+  "zone_id": "optional"
+}`}
+                               </pre>
+                            </div>
+                         </div>
+                      </section>
+                   </div>
+                )}
 
-          </div>
-        </main>
+                {activeSection === 'smm' && (
+                   <div className="space-y-24 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                      <section id="smm-intro" className="space-y-8">
+                         <div className="flex items-center gap-5">
+                            <div className="w-16 h-16 bg-slate-900 rounded-[2rem] flex items-center justify-center text-white shadow-2xl">
+                               <Globe className="w-8 h-8" />
+                            </div>
+                            <div>
+                               <h2 className="text-4xl font-black tracking-tighter uppercase text-[#3D001F] leading-tight">SMM Gateway</h2>
+                               <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em]">Social Media Marketing Logic</p>
+                            </div>
+                         </div>
+                         <p className="text-slate-500 text-lg font-medium leading-relaxed max-w-2xl">
+                            Integrate our high-speed social signals and marketing protocols. Our SMM API allows for massive parallel execution of social transmissions.
+                         </p>
+                         <div className="p-8 bg-blue-50 border border-blue-100 rounded-[2.5rem] flex items-start gap-5">
+                            <Info className="w-6 h-6 text-blue-600 shrink-0 mt-1" />
+                            <div>
+                               <h5 className="text-xs font-black uppercase tracking-widest text-blue-900 mb-2">Unified Protocol</h5>
+                               <p className="text-xs text-blue-700 font-bold uppercase tracking-tight leading-relaxed">
+                                  SMM services use the same <code className="bg-blue-200 px-1 rounded">x-api-key</code> used for game top-ups. One wallet, one key, multiple services.
+                                </p>
+                            </div>
+                         </div>
+                      </section>
+
+                      <section id="smm-balance" className="space-y-8">
+                         <div className="flex items-center gap-4">
+                            <div className="px-3 py-1.5 bg-slate-900 text-white text-[10px] font-black uppercase rounded-lg tracking-widest">GET</div>
+                            <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 font-mono">/smm/balance</h3>
+                         </div>
+                         <div className="bg-slate-50 rounded-[2.5rem] p-10 border border-slate-100">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-8">Response Signature</h4>
+                            <pre className="text-xs font-mono text-[#FF2D85] leading-loose">
+{`{
+  "status": "success",
+  "data": {
+    "balance": 1450.75,
+    "currency": "USD"
+  }
+}`}
+                            </pre>
+                         </div>
+                      </section>
+
+                      <section id="smm-services" className="space-y-10">
+                         <h3 className="text-2xl font-black uppercase tracking-tight flex items-center gap-4">
+                            <Database className="w-6 h-6 text-slate-400" />
+                            Service Matrix
+                         </h3>
+                         <div className="grid grid-cols-1 gap-4">
+                            {[
+                               { name: 'Instagram Broadcast', id: '101', rate: '$0.05/k' },
+                               { name: 'TikTok Pulse', id: '205', rate: '$0.12/k' },
+                               { name: 'Facebook Echo', id: '308', rate: '$0.08/k' }
+                            ].map((service) => (
+                               <div key={service.id} className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-2xl hover:border-pink-200 transition-all group">
+                                  <div className="flex items-center gap-4">
+                                     <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 group-hover:bg-pink-50 group-hover:text-[#FF2D85] transition-all">
+                                        <Layout className="w-5 h-5" />
+                                     </div>
+                                     <div>
+                                        <div className="text-xs font-black uppercase text-slate-900">{service.name}</div>
+                                        <div className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Service ID: {service.id}</div>
+                                     </div>
+                                  </div>
+                                  <div className="text-right">
+                                     <div className="text-xs font-black text-[#FF2D85]">{service.rate}</div>
+                                     <div className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Protocol Standard</div>
+                                  </div>
+                               </div>
+                            ))}
+                         </div>
+                      </section>
+                   </div>
+                )}
+
+             </div>
+          </main>
+        </div>
         
         <ModernFooter />
       </div>

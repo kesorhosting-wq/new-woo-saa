@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-api-key',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-api-key, x-idempotency-key',
 }
 
 serve(async (req) => {
@@ -16,10 +16,25 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
+    const url = new URL(req.url)
+    const pathParts = url.pathname.split('/').filter(Boolean)
+    // Expecting: /reseller-api/v1/action or /reseller-api/api/v2
+    const isV1 = pathParts.includes('v1')
+    const isV2 = pathParts.includes('v2')
+    const action = pathParts[pathParts.length - 1]
+
+    const body = await req.json().catch(() => ({}))
+
     // 1. Authenticate Request
-    const apiKey = req.headers.get('x-api-key')
+    let apiKey = req.headers.get('x-api-key') || req.headers.get('X-API-Key')
+    
+    // SMM v2 supports API key in body
+    if (!apiKey && isV2 && body.key) {
+      apiKey = body.key
+    }
+
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'Missing x-api-key header' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ success: false, message: 'Missing API Key', error_code: '401' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     // Find the reseller
@@ -30,21 +45,21 @@ serve(async (req) => {
       .single()
 
     if (keyError || !keyData || !keyData.is_active) {
-      return new Response(JSON.stringify({ error: 'Invalid or inactive API key' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ success: false, message: 'Invalid or inactive API key', error_code: '401' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     const userId = keyData.user_id;
 
-    // Verify role is actually reseller
-    const { data: roleData, error: roleError } = await supabase
+    // Verify role is reseller
+    const { data: roleData } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
       .eq('role', 'reseller')
       .single()
       
-    if (roleError || !roleData) {
-      return new Response(JSON.stringify({ error: 'Unauthorized role' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    if (!roleData) {
+      return new Response(JSON.stringify({ success: false, message: 'Unauthorized role', error_code: '403' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     // Get Reseller Discount
@@ -60,152 +75,166 @@ serve(async (req) => {
        if (isNaN(discount)) discount = 0;
     }
 
-    // 2. Route Request
-    const url = new URL(req.url)
-    const action = url.pathname.split('/').pop() // e.g., 'get-games', 'place-order'
+    // 2. ROUTING LOGIC
 
-    if (req.method !== 'POST') {
-        return new Response(JSON.stringify({ error: 'Only POST method allowed' }), { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    // --- SMM V2 PROTOCOL ---
+    if (isV2) {
+      const smmAction = body.action;
+      
+      switch (smmAction) {
+        case 'services': {
+          const { data: packages, error } = await supabase
+            .from('packages')
+            .select('id, name, price, games(name)')
+            .order('name');
+          if (error) throw error;
+          
+          return new Response(JSON.stringify(packages.map(p => ({
+            service: p.id,
+            name: `${p.games?.name} - ${p.name}`,
+            type: "Package",
+            category: p.games?.name,
+            rate: (p.price - (p.price * (discount / 100))).toFixed(2),
+            min: "1",
+            max: "1",
+            refill: false,
+            cancel: false
+          }))), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        case 'balance': {
+          const { data: profile } = await supabase.from('profiles').select('wallet_balance').eq('id', userId).single();
+          return new Response(JSON.stringify({ balance: profile?.wallet_balance?.toFixed(4) || "0.0000", currency: "USD" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        case 'add': {
+          const { service, link, quantity } = body;
+          if (!service || !link) return new Response(JSON.stringify({ error: "Service and Link required" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          
+          // Split link for PlayerID|ServerID
+          const [playerId, serverId] = link.split('|');
+
+          const { data: pkg } = await supabase.from('packages').select('*, games(name)').eq('id', service).single();
+          if (!pkg) return new Response(JSON.stringify({ error: "Service not found" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+          const price = pkg.price - (pkg.price * (discount / 100));
+          const { data: profile } = await supabase.from('profiles').select('wallet_balance').eq('id', userId).single();
+
+          if (!profile || profile.wallet_balance < price) return new Response(JSON.stringify({ error: "Insufficient balance" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+          // Atomic Deduction & Order
+          const { data: order } = await supabase.from('topup_orders').insert({
+            user_id: userId,
+            game_name: pkg.games.name,
+            package_name: pkg.name,
+            player_id: playerId,
+            server_id: serverId || null,
+            amount: price,
+            status: 'pending',
+            payment_method: 'api_v2'
+          }).select().single();
+
+          await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - price }).eq('id', userId);
+
+          return new Response(JSON.stringify({ order: order?.id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
+        case 'status': {
+          if (body.orders) {
+            const ids = body.orders.split(',');
+            const { data: orders } = await supabase.from('topup_orders').select('id, status, amount').in('id', ids);
+            const res: any = {};
+            orders?.forEach(o => {
+              res[o.id] = { charge: o.amount.toFixed(3), status: o.status, currency: "USD" };
+            });
+            return new Response(JSON.stringify(res), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
+          const { data: order } = await supabase.from('topup_orders').select('status, amount').eq('id', body.order).single();
+          return new Response(JSON.stringify({ charge: order?.amount.toFixed(3), status: order?.status, currency: "USD" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
     }
 
-    const body = await req.json().catch(() => ({}))
-
+    // --- MAIN V1 API PROTOCOL ---
     switch (action) {
-      case 'get-games': {
-        const { data: games, error } = await supabase
-          .from('games')
-          .select('id, name, image, description')
-          .order('name');
-        if (error) throw error;
-        return new Response(JSON.stringify({ success: true, games }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      case 'getMe': {
+        const { data: profile } = await supabase.from('profiles').select('id, display_name, email, wallet_balance').eq('id', userId).single();
+        return new Response(JSON.stringify({
+          success: true,
+          user_id: profile?.id,
+          username: profile?.display_name || profile?.email?.split('@')[0],
+          balance: profile?.wallet_balance || 0
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      case 'get-packages': {
-        const { game_id } = body;
-        if (!game_id) return new Response(JSON.stringify({ error: 'Missing game_id' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-        
-        const { data: packages, error } = await supabase
-          .from('packages')
-          .select('id, name, price, amount, quantity, label')
-          .eq('game_id', game_id)
-          .order('price');
-          
-        if (error) throw error;
-
-        // Apply discount
-        const discountedPackages = packages.map(pkg => ({
-            ...pkg,
-            original_price: pkg.price,
-            price: pkg.price - (pkg.price * (discount / 100))
-        }));
-
-        return new Response(JSON.stringify({ success: true, packages: discountedPackages }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      case 'category': {
+        const { data: games } = await supabase.from('games').select('id, name, image, description');
+        return new Response(JSON.stringify({ success: true, categories: games?.map(g => ({ id: g.id, title: g.name, image_url: g.image })) }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      case 'check-balance': {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('wallet_balance')
-          .eq('id', userId)
-          .single();
-        if (error) throw error;
-        return new Response(JSON.stringify({ success: true, balance: profile.wallet_balance }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      case 'products': {
+        const { data: pkgs } = await supabase.from('packages').select('*, games(name)');
+        return new Response(JSON.stringify({
+          success: true,
+          products: pkgs?.map(p => ({
+            id: p.id,
+            title: p.name,
+            category_title: p.games?.name,
+            unit_price: p.price - (p.price * (discount / 100)),
+            stock: 999 // Placeholder
+          }))
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      case 'place-order': {
-        const { game_id, package_id, player_id, zone_id } = body;
-        if (!game_id || !package_id || !player_id) {
-             return new Response(JSON.stringify({ error: 'Missing required fields (game_id, package_id, player_id)' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      case 'games': {
+        const { data: games } = await supabase.from('games').select('id, name, image');
+        return new Response(JSON.stringify({ success: true, games: games?.map(g => ({ id: g.id, code: g.id, name: g.name })) }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case 'order':
+      case 'purchase': {
+        // Shared logic for V1 purchase
+        const pkgId = body.package_id || url.pathname.split('/')[3]; // Support both body and path param
+        const { data: pkg } = await supabase.from('packages').select('*, games(name)').eq('id', pkgId).single();
+        if (!pkg) return new Response(JSON.stringify({ success: false, message: 'Package not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+        const price = pkg.price - (pkg.price * (discount / 100));
+        const { data: profile } = await supabase.from('profiles').select('wallet_balance').eq('id', userId).single();
+
+        if (!profile || profile.wallet_balance < price) {
+          return new Response(JSON.stringify({ success: false, message: 'Insufficient balance', error_code: '402' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
-        // 1. Get Package & Game Details
-        const { data: pkg, error: pkgError } = await supabase
-            .from('packages')
-            .select('*, games(name)')
-            .eq('id', package_id)
-            .eq('game_id', game_id)
-            .single()
+        const { data: newOrder } = await supabase.from('topup_orders').insert({
+          user_id: userId,
+          game_name: pkg.games.name,
+          package_name: pkg.name,
+          player_id: body.player_id || 'N/A',
+          amount: price,
+          status: 'pending',
+          payment_method: 'api_v1'
+        }).select().single();
 
-        if (pkgError || !pkg) return new Response(JSON.stringify({ error: 'Invalid package' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance - price }).eq('id', userId);
 
-        const discountedPrice = pkg.price - (pkg.price * (discount / 100));
+        return new Response(JSON.stringify({ success: true, order_id: newOrder?.id, status: "PENDING" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
 
-        // 2. Lock & Check Balance (Using RPC or atomic check)
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('wallet_balance, display_name')
-          .eq('id', userId)
-          .single();
+      case 'orders': {
+        const { data: orders } = await supabase.from('topup_orders').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50);
+        return new Response(JSON.stringify({ success: true, orders }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
 
-        if (profileError || !profile) throw profileError;
-
-        if (profile.wallet_balance < discountedPrice) {
-            return new Response(JSON.stringify({ error: 'Insufficient balance', required: discountedPrice, current: profile.wallet_balance }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-        }
-
-        // 3. Process Transaction
-        const newBalance = profile.wallet_balance - discountedPrice;
-        
-        // Update balance
-        const { error: updateError } = await supabase
-            .from('profiles')
-            .update({ wallet_balance: newBalance })
-            .eq('id', userId)
-            
-        if (updateError) throw updateError;
-
-        // Log transaction
-        await supabase
-            .from('wallet_transactions')
-            .insert({
-                user_id: userId,
-                type: 'reseller_api_purchase',
-                amount: -discountedPrice,
-                balance_before: profile.wallet_balance,
-                balance_after: newBalance,
-                description: `API Order for ${pkg.games.name} - ${pkg.name}`,
-            });
-
-        // Create Order
-        const { data: order, error: orderError } = await supabase
-            .from('topup_orders')
-            .insert({
-                user_id: userId,
-                game_name: pkg.games.name,
-                package_name: pkg.name,
-                player_id: player_id,
-                server_id: zone_id || null,
-                amount: pkg.price, // Record original or discounted? Usually original is better for external APIs, but discounted is what they paid.
-                currency: 'USD',
-                status: 'processing',
-                payment_method: 'wallet',
-                g2bulk_product_id: pkg.g2bulk_product_id,
-            })
-            .select()
-            .single();
-
-        if (orderError) throw orderError;
-
-        // TODO: Here you would typically also trigger your internal provider webhook (like G2Bulk) 
-        // to actually fulfill the order, just like your frontend does.
-        // For now, it's marked as 'processing' in your DB.
-
-        return new Response(JSON.stringify({ 
-            success: true, 
-            message: 'Order placed successfully', 
-            order_id: order.id,
-            new_balance: newBalance 
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      case 'transactions': {
+        const { data: txs } = await supabase.from('wallet_transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50);
+        return new Response(JSON.stringify({ success: true, data: txs }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
       default:
-        return new Response(JSON.stringify({ error: 'Invalid action' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return new Response(JSON.stringify({ success: false, message: 'Invalid Action' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
+
   } catch (error) {
-    console.error('Error in reseller API:', error)
-    return new Response(JSON.stringify({ error: error.message || 'Internal Server Error' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 })

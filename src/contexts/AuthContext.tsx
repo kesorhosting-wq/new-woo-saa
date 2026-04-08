@@ -83,7 +83,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signUp = async (email: string, password: string, options?: SignUpOptions) => {
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -93,15 +93,43 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
     });
+
+    if (data?.user && !error) {
+      // Create profile record immediately
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        email: data.user.email,
+        display_name: options?.displayName || email.split('@')[0],
+        wallet_balance: 0
+      });
+    }
     
     return { error: error as Error | null };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    
+    if (data?.user) {
+      // Auto-profile creation on sign in if missing
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', data.user.id)
+        .maybeSingle();
+
+      if (!existingProfile) {
+        await supabase.from('profiles').insert({
+          id: data.user.id,
+          email: data.user.email,
+          display_name: data.user.user_metadata?.display_name || data.user.email?.split('@')[0],
+          wallet_balance: 0
+        });
+      }
+    }
     
     return { error: error as Error | null };
   };

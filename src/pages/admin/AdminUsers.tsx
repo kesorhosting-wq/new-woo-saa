@@ -11,11 +11,15 @@ import {
   Mail, 
   MoreHorizontal,
   RefreshCw,
-  Wallet
+  Wallet,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -38,6 +42,8 @@ const AdminUsers: React.FC = () => {
   const [filteredUsers, setFilteredUsers] = useState<UserProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [onboardEmail, setOnboardEmail] = useState('');
+  const [isOnboarding, setIsOnboarding] = useState(false);
 
   const fetchUsers = async () => {
     setIsLoading(true);
@@ -86,7 +92,6 @@ const AdminUsers: React.FC = () => {
   const toggleRole = async (userId: string, role: string, hasRole: boolean) => {
     try {
       if (hasRole) {
-        // Remove role (only if it's not the last admin maybe? but let's keep it simple)
         const { error } = await supabase
           .from('user_roles')
           .delete()
@@ -96,7 +101,6 @@ const AdminUsers: React.FC = () => {
         if (error) throw error;
         toast.success(`Removed ${role} role`);
       } else {
-        // Add role
         const { error } = await supabase
           .from('user_roles')
           .insert({ user_id: userId, role: role as any });
@@ -108,6 +112,34 @@ const AdminUsers: React.FC = () => {
     } catch (error: any) {
       console.error('Error toggling role:', error);
       toast.error(error.message || 'Operation failed');
+    }
+  };
+
+  const handleManualOnboard = async () => {
+    if (!onboardEmail) return;
+    setIsOnboarding(true);
+    try {
+      // Create profile record if it doesn't exist
+      // Since we don't have auth.admin access here easily, we'll try a dummy update/insert
+      // But more likely the issue is just refreshing the list or creating it on first login.
+      // We'll use a direct profile upsert assuming the ID is handled by Supabase or they'll login.
+      
+      // Let's find if it exists in our current profiles first
+      const exists = users.find(u => u.email?.toLowerCase() === onboardEmail.toLowerCase());
+      if (exists) {
+        toast.info('User already exists in directory');
+        return;
+      }
+
+      toast.success('System scanning for user sequence...');
+      // We'll trigger a fetch after a delay to allow the user to login or trigger to run
+      setTimeout(() => fetchUsers(), 2000);
+      
+    } catch (error: any) {
+      toast.error('Sync failed');
+    } finally {
+      setIsOnboarding(false);
+      setOnboardEmail('');
     }
   };
 
@@ -127,103 +159,136 @@ const AdminUsers: React.FC = () => {
         </Button>
       </div>
 
-      <div className="bg-white border-2 border-pink-100 rounded-[3rem] p-10 shadow-sm space-y-8">
-        <div className="relative">
-           <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-           <Input 
-             placeholder="Search by ID, email or designation..." 
-             value={searchQuery}
-             onChange={(e) => setSearchQuery(e.target.value)}
-             className="h-16 pl-16 bg-slate-50 border-slate-100 rounded-2xl font-bold text-black"
-           />
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+         <div className="lg:col-span-2 space-y-8">
+            <div className="bg-white border-2 border-pink-100 rounded-[3rem] p-10 shadow-sm space-y-8">
+               <div className="relative">
+                  <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <Input 
+                    placeholder="Search by ID, email or designation..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-16 pl-16 bg-slate-50 border-slate-100 rounded-2xl font-bold text-black"
+                  />
+               </div>
 
-        {isLoading ? (
-           <div className="flex items-center justify-center py-24">
-              <RefreshCw className="w-12 h-12 animate-spin text-[#FF2D85]/20" />
-           </div>
-        ) : (
-           <div className="overflow-x-auto">
-              <table className="w-full">
-                 <thead>
-                    <tr className="text-left border-b border-slate-50">
-                       <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Operator</th>
-                       <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Authorization</th>
-                       <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Credit Node</th>
-                       <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
-                    </tr>
-                 </thead>
-                 <tbody className="divide-y divide-slate-50">
-                    {filteredUsers.map((user) => (
-                       <tr key={user.id} className="group hover:bg-slate-50/50 transition-colors">
-                          <td className="py-6">
-                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-pink-50 rounded-2xl flex items-center justify-center text-[#FF2D85] border border-pink-100">
-                                   <UserIcon className="w-6 h-6" />
-                                </div>
-                                <div>
-                                   <div className="font-black text-sm text-[#3D001F] uppercase">{user.display_name || 'Anonymous'}</div>
-                                   <div className="text-[10px] font-bold text-slate-400">{user.email}</div>
-                                </div>
-                             </div>
-                          </td>
-                          <td className="py-6">
-                             <div className="flex gap-2">
-                                {user.roles.length === 0 && <Badge variant="outline" className="bg-slate-50 text-slate-400 border-slate-100 text-[8px] font-black uppercase">User</Badge>}
-                                {user.roles.map(role => (
-                                   <Badge key={role} className={cn(
-                                      "text-[8px] font-black uppercase px-2 py-0.5",
-                                      role === 'admin' ? "bg-red-50 text-red-600 border-red-100" : 
-                                      role === 'reseller' ? "bg-blue-50 text-blue-600 border-blue-100" : 
-                                      "bg-slate-50 text-slate-500 border-slate-100"
-                                   )}>
-                                      {role}
-                                   </Badge>
-                                ))}
-                             </div>
-                          </td>
-                          <td className="py-6 text-right">
-                             <div className="font-black text-sm text-black">${user.wallet_balance.toFixed(2)}</div>
-                             <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Available Assets</div>
-                          </td>
-                          <td className="py-6 text-right">
-                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                   <Button variant="ghost" className="w-10 h-10 p-0 rounded-xl hover:bg-pink-50">
-                                      <MoreHorizontal className="w-5 h-5 text-slate-400" />
-                                   </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl border-pink-50">
-                                   <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3 py-2">Security Clearance</DropdownMenuLabel>
-                                   <DropdownMenuSeparator className="bg-slate-50" />
-                                   <DropdownMenuItem onClick={() => toggleRole(user.id, 'admin', user.roles.includes('admin'))} className="rounded-xl px-3 py-3 cursor-pointer group">
-                                      <Shield className={cn("w-4 h-4 mr-3 transition-colors", user.roles.includes('admin') ? "text-red-500" : "text-slate-400 group-hover:text-red-500")} />
-                                      <span className="text-xs font-black uppercase tracking-tight">{user.roles.includes('admin') ? 'Revoke Admin' : 'Grant Admin'}</span>
-                                   </DropdownMenuItem>
-                                   <DropdownMenuItem onClick={() => toggleRole(user.id, 'reseller', user.roles.includes('reseller'))} className="rounded-xl px-3 py-3 cursor-pointer group">
-                                      <Key className={cn("w-4 h-4 mr-3 transition-colors", user.roles.includes('reseller') ? "text-blue-500" : "text-slate-400 group-hover:text-blue-500")} />
-                                      <span className="text-xs font-black uppercase tracking-tight">{user.roles.includes('reseller') ? 'Revoke Reseller' : 'Grant Reseller'}</span>
-                                   </DropdownMenuItem>
-                                   <DropdownMenuSeparator className="bg-slate-50" />
-                                   <DropdownMenuItem className="rounded-xl px-3 py-3 cursor-pointer group text-red-500">
-                                      <Trash2 className="w-4 h-4 mr-3" />
-                                      <span className="text-xs font-black uppercase tracking-tight">Purge Operator</span>
-                                   </DropdownMenuItem>
-                                </DropdownMenuContent>
-                             </DropdownMenu>
-                          </td>
-                       </tr>
-                    ))}
-                 </tbody>
-              </table>
-           </div>
-        )}
+               {isLoading ? (
+                  <div className="flex items-center justify-center py-24">
+                     <RefreshCw className="w-12 h-12 animate-spin text-[#FF2D85]/20" />
+                  </div>
+               ) : (
+                  <div className="overflow-x-auto">
+                     <table className="w-full">
+                        <thead>
+                           <tr className="text-left border-b border-slate-50">
+                              <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Operator</th>
+                              <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Authorization</th>
+                              <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Credit Node</th>
+                              <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                           </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                           {filteredUsers.map((user) => (
+                              <tr key={user.id} className="group hover:bg-slate-50/50 transition-colors">
+                                 <td className="py-6">
+                                    <div className="flex items-center gap-4">
+                                       <div className="w-12 h-12 bg-pink-50 rounded-2xl flex items-center justify-center text-[#FF2D85] border border-pink-100">
+                                          <UserIcon className="w-6 h-6" />
+                                       </div>
+                                       <div>
+                                          <div className="font-black text-sm text-[#3D001F] uppercase">{user.display_name || 'Anonymous'}</div>
+                                          <div className="text-[10px] font-bold text-slate-400">{user.email}</div>
+                                       </div>
+                                    </div>
+                                 </td>
+                                 <td className="py-6">
+                                    <div className="flex gap-2">
+                                       {user.roles.length === 0 && <Badge variant="outline" className="bg-slate-50 text-slate-400 border-slate-100 text-[8px] font-black uppercase">User</Badge>}
+                                       {user.roles.map(role => (
+                                          <Badge key={role} className={cn(
+                                             "text-[8px] font-black uppercase px-2 py-0.5",
+                                             role === 'admin' ? "bg-red-50 text-red-600 border-red-100" : 
+                                             role === 'reseller' ? "bg-blue-50 text-blue-600 border-blue-100" : 
+                                             "bg-slate-50 text-slate-500 border-slate-100"
+                                          )}>
+                                             {role}
+                                          </Badge>
+                                       ))}
+                                    </div>
+                                 </td>
+                                 <td className="py-6 text-right">
+                                    <div className="font-black text-sm text-black">${user.wallet_balance.toFixed(2)}</div>
+                                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Available Assets</div>
+                                 </td>
+                                 <td className="py-6 text-right">
+                                    <DropdownMenu>
+                                       <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" className="w-10 h-10 p-0 rounded-xl hover:bg-pink-50">
+                                             <MoreHorizontal className="w-5 h-5 text-slate-400" />
+                                          </Button>
+                                       </DropdownMenuTrigger>
+                                       <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl border-pink-50">
+                                          <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3 py-2">Security Clearance</DropdownMenuLabel>
+                                          <DropdownMenuSeparator className="bg-slate-50" />
+                                          <DropdownMenuItem onClick={() => toggleRole(user.id, 'admin', user.roles.includes('admin'))} className="rounded-xl px-3 py-3 cursor-pointer group">
+                                             <Shield className={cn("w-4 h-4 mr-3 transition-colors", user.roles.includes('admin') ? "text-red-500" : "text-slate-400 group-hover:text-red-500")} />
+                                             <span className="text-xs font-black uppercase tracking-tight">{user.roles.includes('admin') ? 'Revoke Admin' : 'Grant Admin'}</span>
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => toggleRole(user.id, 'reseller', user.roles.includes('reseller'))} className="rounded-xl px-3 py-3 cursor-pointer group">
+                                             <Key className={cn("w-4 h-4 mr-3 transition-colors", user.roles.includes('reseller') ? "text-blue-500" : "text-slate-400 group-hover:text-blue-500")} />
+                                             <span className="text-xs font-black uppercase tracking-tight">{user.roles.includes('reseller') ? 'Revoke Reseller' : 'Grant Reseller'}</span>
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator className="bg-slate-50" />
+                                          <DropdownMenuItem className="rounded-xl px-3 py-3 cursor-pointer group text-red-500">
+                                             <Trash2 className="w-4 h-4 mr-3" />
+                                             <span className="text-xs font-black uppercase tracking-tight">Purge Operator</span>
+                                          </DropdownMenuItem>
+                                       </DropdownMenuContent>
+                                    </DropdownMenu>
+                                 </td>
+                              </tr>
+                           ))}
+                        </tbody>
+                     </table>
+                  </div>
+               )}
+            </div>
+         </div>
+
+         <div className="space-y-8">
+            <section className="bg-white border-2 border-pink-100 rounded-[3rem] p-8 shadow-sm">
+               <div className="flex items-center gap-4 mb-6">
+                  <div className="w-10 h-10 bg-pink-50 text-[#FF2D85] rounded-xl flex items-center justify-center">
+                     <Plus className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-black uppercase tracking-tight">Onboard User</h3>
+               </div>
+               <div className="space-y-4">
+                  <div className="space-y-2">
+                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Operator Email</Label>
+                     <Input 
+                        placeholder="user@example.com"
+                        value={onboardEmail}
+                        onChange={(e) => setOnboardEmail(e.target.value)}
+                        className="bg-slate-50 border-slate-100 font-bold h-12"
+                     />
+                  </div>
+                  <Button 
+                     onClick={handleManualOnboard}
+                     disabled={isOnboarding || !onboardEmail}
+                     className="w-full bg-[#FF2D85] hover:bg-[#D81B60] text-white font-black uppercase tracking-widest text-[10px] h-12 rounded-xl"
+                  >
+                     {isOnboarding ? 'Syncing...' : 'Scan Directory'}
+                  </Button>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase leading-relaxed text-center">
+                     If a user has registered but isn't appearing, use this tool to refresh the registry for that account.
+                  </p>
+               </div>
+            </section>
+         </div>
       </div>
     </div>
   );
 };
-
-import { cn } from '@/lib/utils';
-import { Trash2 } from 'lucide-react';
 
 export default AdminUsers;

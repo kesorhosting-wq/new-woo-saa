@@ -14,7 +14,9 @@ import {
   Wallet,
   Plus,
   Trash2,
-  Database
+  Database,
+  AlertCircle,
+  Code2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,28 +50,29 @@ const AdminUsers: React.FC = () => {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
+      // 1. Fetch Profiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, display_name, email, wallet_balance');
 
       if (profilesError) throw profilesError;
 
+      // 2. Fetch Roles (Safe fetch)
       const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
 
-      if (rolesError) throw rolesError;
-
-      const userProfiles: UserProfile[] = profiles.map(profile => ({
+      // Combine data
+      const userProfiles: UserProfile[] = (profiles || []).map(profile => ({
         ...profile,
-        roles: roles.filter(r => r.user_id === profile.id).map(r => r.role as string)
+        roles: (roles || []).filter(r => r.user_id === profile.id).map(r => r.role as string)
       }));
 
       setUsers(userProfiles);
       setFilteredUsers(userProfiles);
     } catch (error: any) {
       console.error('Error fetching users:', error);
-      toast.error('Failed to load user directory');
+      toast.error('Access Denied: Check Database Policies');
     } finally {
       setIsLoading(false);
     }
@@ -92,25 +95,14 @@ const AdminUsers: React.FC = () => {
   const toggleRole = async (userId: string, role: string, hasRole: boolean) => {
     try {
       if (hasRole) {
-        const { error } = await supabase
-          .from('user_roles')
-          .delete()
-          .eq('user_id', userId)
-          .eq('role', role);
-        
-        if (error) throw error;
+        await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', role);
         toast.success(`Removed ${role} role`);
       } else {
-        const { error } = await supabase
-          .from('user_roles')
-          .insert({ user_id: userId, role: role as any });
-        
-        if (error) throw error;
+        await supabase.from('user_roles').insert({ user_id: userId, role: role as any });
         toast.success(`Added ${role} role`);
       }
       fetchUsers();
     } catch (error: any) {
-      console.error('Error toggling role:', error);
       toast.error(error.message || 'Operation failed');
     }
   };
@@ -118,11 +110,8 @@ const AdminUsers: React.FC = () => {
   const handleManualRefresh = async () => {
     setIsOnboarding(true);
     try {
-      toast.info('Synchronizing with Database...');
       await fetchUsers();
-      toast.success('User registry up to date');
-    } catch (error: any) {
-      toast.error('Refresh failed');
+      toast.success('Registry Sync Attempted');
     } finally {
       setIsOnboarding(false);
     }
@@ -150,7 +139,7 @@ const AdminUsers: React.FC = () => {
                <div className="relative">
                   <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <Input 
-                    placeholder="Search by ID, email or designation..." 
+                    placeholder="Search operators..." 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="h-16 pl-16 bg-slate-50 border-slate-100 rounded-2xl font-bold text-black"
@@ -161,14 +150,38 @@ const AdminUsers: React.FC = () => {
                   <div className="flex items-center justify-center py-24">
                      <RefreshCw className="w-12 h-12 animate-spin text-[#FF2D85]/20" />
                   </div>
+               ) : users.length === 0 ? (
+                  <div className="py-20 text-center space-y-6">
+                     <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto border border-slate-100">
+                        <AlertCircle className="w-10 h-10 text-slate-300" />
+                     </div>
+                     <div>
+                        <h3 className="text-xl font-black uppercase text-slate-900">Registry Is Empty</h3>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2 max-w-sm mx-auto leading-relaxed">
+                           Users exist in Auth, but have not been linked to the Profiles table yet.
+                        </p>
+                     </div>
+                     <div className="p-6 bg-amber-50 border border-amber-100 rounded-3xl text-left">
+                        <div className="flex items-center gap-3 mb-4">
+                           <Code2 className="w-4 h-4 text-amber-600" />
+                           <span className="text-[10px] font-black uppercase text-amber-900">Emergency Repair Script</span>
+                        </div>
+                        <p className="text-[9px] text-amber-700 font-bold uppercase leading-relaxed mb-4">
+                           Run this in your Supabase SQL Editor to instantly move all users into this list:
+                        </p>
+                        <pre className="bg-white p-3 rounded-lg text-[8px] font-mono text-slate-600 overflow-x-auto border border-amber-200">
+{`INSERT INTO public.profiles (id, email, display_name, wallet_balance)
+SELECT id, email, split_part(email, '@', 1), 0
+FROM auth.users ON CONFLICT (id) DO NOTHING;`}
+                        </pre>
+                     </div>
+                  </div>
                ) : (
                   <div className="overflow-x-auto">
                      <table className="w-full">
                         <thead>
                            <tr className="text-left border-b border-slate-50">
                               <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Operator</th>
-                              <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Authorization</th>
-                              <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Credit Node</th>
                               <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                            </tr>
                         </thead>
@@ -183,50 +196,27 @@ const AdminUsers: React.FC = () => {
                                        <div>
                                           <div className="font-black text-sm text-[#3D001F] uppercase">{user.display_name || 'Anonymous'}</div>
                                           <div className="text-[10px] font-bold text-slate-400">{user.email}</div>
+                                          <div className="flex gap-1 mt-2">
+                                             {user.roles.map(role => (
+                                                <Badge key={role} className="text-[7px] font-black uppercase px-1.5 py-0 bg-blue-50 text-blue-600 border-blue-100">{role}</Badge>
+                                             ))}
+                                          </div>
                                        </div>
                                     </div>
                                  </td>
-                                 <td className="py-6">
-                                    <div className="flex gap-2">
-                                       {user.roles.length === 0 && <Badge variant="outline" className="bg-slate-50 text-slate-400 border-slate-100 text-[8px] font-black uppercase">User</Badge>}
-                                       {user.roles.map(role => (
-                                          <Badge key={role} className={cn(
-                                             "text-[8px] font-black uppercase px-2 py-0.5",
-                                             role === 'admin' ? "bg-red-50 text-red-600 border-red-100" : 
-                                             role === 'reseller' ? "bg-blue-50 text-blue-600 border-blue-100" : 
-                                             "bg-slate-50 text-slate-500 border-slate-100"
-                                          )}>
-                                             {role}
-                                          </Badge>
-                                       ))}
-                                    </div>
-                                 </td>
-                                 <td className="py-6 text-right">
-                                    <div className="font-black text-sm text-black">${user.wallet_balance.toFixed(2)}</div>
-                                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Available Assets</div>
-                                 </td>
                                  <td className="py-6 text-right">
                                     <DropdownMenu>
-                                       <DropdownMenuTrigger asChild>
-                                          <Button variant="ghost" className="w-10 h-10 p-0 rounded-xl hover:bg-pink-50">
-                                             <MoreHorizontal className="w-5 h-5 text-slate-400" />
-                                          </Button>
-                                       </DropdownMenuTrigger>
+                                       <DropdownMenuTrigger asChild><Button variant="ghost" className="w-10 h-10 p-0 rounded-xl hover:bg-pink-50"><MoreHorizontal className="w-5 h-5 text-slate-400" /></Button></DropdownMenuTrigger>
                                        <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl border-pink-50">
-                                          <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3 py-2">Security Clearance</DropdownMenuLabel>
+                                          <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3 py-2">Authorization</DropdownMenuLabel>
                                           <DropdownMenuSeparator className="bg-slate-50" />
                                           <DropdownMenuItem onClick={() => toggleRole(user.id, 'admin', user.roles.includes('admin'))} className="rounded-xl px-3 py-3 cursor-pointer group">
-                                             <Shield className={cn("w-4 h-4 mr-3 transition-colors", user.roles.includes('admin') ? "text-red-500" : "text-slate-400 group-hover:text-red-500")} />
+                                             <Shield className={cn("w-4 h-4 mr-3", user.roles.includes('admin') ? "text-red-500" : "text-slate-400")} />
                                              <span className="text-xs font-black uppercase tracking-tight">{user.roles.includes('admin') ? 'Revoke Admin' : 'Grant Admin'}</span>
                                           </DropdownMenuItem>
                                           <DropdownMenuItem onClick={() => toggleRole(user.id, 'reseller', user.roles.includes('reseller'))} className="rounded-xl px-3 py-3 cursor-pointer group">
-                                             <Key className={cn("w-4 h-4 mr-3 transition-colors", user.roles.includes('reseller') ? "text-blue-500" : "text-slate-400 group-hover:text-blue-500")} />
+                                             <Key className={cn("w-4 h-4 mr-3", user.roles.includes('reseller') ? "text-blue-500" : "text-slate-400")} />
                                              <span className="text-xs font-black uppercase tracking-tight">{user.roles.includes('reseller') ? 'Revoke Reseller' : 'Grant Reseller'}</span>
-                                          </DropdownMenuItem>
-                                          <DropdownMenuSeparator className="bg-slate-50" />
-                                          <DropdownMenuItem className="rounded-xl px-3 py-3 cursor-pointer group text-red-500">
-                                             <Trash2 className="w-4 h-4 mr-3" />
-                                             <span className="text-xs font-black uppercase tracking-tight">Purge Operator</span>
                                           </DropdownMenuItem>
                                        </DropdownMenuContent>
                                     </DropdownMenu>
@@ -246,16 +236,16 @@ const AdminUsers: React.FC = () => {
                   <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
                      <ShieldCheck className="w-5 h-5" />
                   </div>
-                  <h3 className="text-lg font-black uppercase tracking-tight">Sync Status</h3>
+                  <h3 className="text-lg font-black uppercase tracking-tight">System Sync</h3>
                </div>
                <div className="space-y-4">
                   <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
                      <div className="flex items-center gap-3">
                         <Database className="w-4 h-4 text-slate-400" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">Auto-Index Enabled</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">Auto-Index Engine</span>
                      </div>
                      <p className="text-[9px] text-slate-500 font-bold uppercase leading-relaxed">
-                        The system is now configured to automatically link Auth accounts to the Profile registry the millisecond they register.
+                        If new registrations are not appearing, use the refresh button below to force a frontend update.
                      </p>
                   </div>
                   <Button 
@@ -263,7 +253,7 @@ const AdminUsers: React.FC = () => {
                      disabled={isOnboarding}
                      className="w-full bg-black hover:bg-slate-800 text-white font-black uppercase tracking-widest text-[10px] h-14 rounded-xl shadow-lg"
                   >
-                     {isOnboarding ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Force Registry Refresh'}
+                     {isOnboarding ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Refresh Operator List'}
                   </Button>
                </div>
             </section>

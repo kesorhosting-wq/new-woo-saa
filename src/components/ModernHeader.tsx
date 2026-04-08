@@ -33,8 +33,11 @@ const ModernHeader: React.FC = () => {
   const navLinks = [
     { name: 'Home', path: '/' },
     { name: 'Games', path: '/#games' },
-    { name: 'History', path: '/history' },
-    { name: 'Wallet', path: '/wallet' },
+    ...(user ? [
+      { name: 'History', path: '/history' },
+      { name: 'Wallet', path: '/wallet' },
+    ] : []),
+    { name: 'Docs', path: '/api-docs' },
   ];
 
   const handleNavClick = (path: string) => {

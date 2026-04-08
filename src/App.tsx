@@ -17,7 +17,7 @@ import OrderHistoryPage from "./pages/OrderHistoryPage";
 import WalletPage from "./pages/WalletPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
-import ResellerDocsPage from "./pages/ResellerDocsPage";
+import DocsPage from "./pages/DocsPage";
 
 const queryClient = new QueryClient();
 
@@ -41,7 +41,8 @@ const App = () => (
                     <Route path="/history" element={<OrderHistoryPage />} />
                     <Route path="/wallet" element={<WalletPage />} />
                     <Route path="/auth" element={<AuthPage />} />
-                    <Route path="/api-docs" element={<ResellerDocsPage />} />
+                    <Route path="/api-docs" element={<DocsPage />} />
+                    <Route path="/docs" element={<DocsPage />} />
                     <Route path="/privacy" element={<div className="min-h-screen bg-white flex items-center justify-center font-black uppercase tracking-widest text-black/20">Privacy Protocol Terminal</div>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>

@@ -10,13 +10,14 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
+import { cn } from "@/lib/utils";
 
 const ModernHero: React.FC = () => {
   const { settings } = useSite();
   const [api, setApi] = React.useState<CarouselApi>();
   const [current, setCurrent] = React.useState(0);
 
-  const banners = settings.bannerImages && settings.bannerImages.length > 0 
+  const banners = Array.isArray(settings.bannerImages) && settings.bannerImages.length > 0 
     ? settings.bannerImages 
     : [settings.bannerImage || "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80"];
 

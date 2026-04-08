@@ -103,7 +103,9 @@ export const SiteProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       if (settingsResult.data) {
         const loaded: any = {};
-        settingsResult.data.forEach(r => loaded[r.key] = r.value);
+        settingsResult.data.forEach(r => {
+          if (r && r.key) loaded[r.key] = r.value;
+        });
         setSettings(prev => ({ ...prev, ...loaded }));
       }
 

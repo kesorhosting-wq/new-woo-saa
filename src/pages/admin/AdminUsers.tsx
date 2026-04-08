@@ -182,6 +182,8 @@ FROM auth.users ON CONFLICT (user_id) DO NOTHING;`}
                         <thead>
                            <tr className="text-left border-b border-slate-50">
                               <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Operator</th>
+                              <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Authorization</th>
+                              <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Available Assets</th>
                               <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                            </tr>
                         </thead>
@@ -196,13 +198,19 @@ FROM auth.users ON CONFLICT (user_id) DO NOTHING;`}
                                        <div>
                                           <div className="font-black text-sm text-[#3D001F] uppercase">{user.display_name || 'Anonymous'}</div>
                                           <div className="text-[10px] font-bold text-slate-400">{user.email}</div>
-                                          <div className="flex gap-1 mt-2">
-                                             {user.roles.map(role => (
-                                                <Badge key={role} className="text-[7px] font-black uppercase px-1.5 py-0 bg-blue-50 text-blue-600 border-blue-100">{role}</Badge>
-                                             ))}
-                                          </div>
                                        </div>
                                     </div>
+                                 </td>
+                                 <td className="py-6">
+                                    <div className="flex flex-wrap gap-1.5">
+                                       {user.roles.length === 0 && <Badge variant="outline" className="text-[8px] font-black uppercase px-2 py-0.5 border-slate-200 text-slate-400">User</Badge>}
+                                       {user.roles.includes('admin') && <Badge className="text-[8px] font-black uppercase px-2 py-0.5 bg-red-50 text-red-600 border-red-100 shadow-none hover:bg-red-50">Admin</Badge>}
+                                       {user.roles.includes('reseller') && <Badge className="text-[8px] font-black uppercase px-2 py-0.5 bg-blue-50 text-blue-600 border-blue-100 shadow-none hover:bg-blue-50">Reseller</Badge>}
+                                    </div>
+                                 </td>
+                                 <td className="py-6 text-right">
+                                    <div className="font-black text-sm text-[#FF2D85]">${user.wallet_balance.toFixed(2)}</div>
+                                    <div className="text-[8px] font-bold text-slate-300 uppercase tracking-tighter">Credit Node</div>
                                  </td>
                                  <td className="py-6 text-right">
                                     <DropdownMenu>

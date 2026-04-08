@@ -107,15 +107,15 @@ const AdminResellersTab: React.FC = () => {
     if (!searchEmail) return;
     setIsSearching(true);
     try {
-      // Find user by email in profiles
+      // Find user by email in profiles (Case Insensitive)
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('id')
-        .eq('email', searchEmail)
-        .single();
+        .select('user_id')
+        .ilike('email', searchEmail.trim())
+        .maybeSingle();
 
       if (profileError || !profileData) {
-         toast({ title: 'User not found', description: 'Make sure the user has logged in at least once.', variant: 'destructive' });
+         toast({ title: 'User not found', description: `No registered profile found for ${searchEmail}`, variant: 'destructive' });
          return;
       }
 
@@ -124,14 +124,14 @@ const AdminResellersTab: React.FC = () => {
       const { data: existingRole } = await supabase
         .from('user_roles')
         .select('id')
-        .eq('user_id', profileData.id)
+        .eq('user_id', profileData.user_id)
         .eq('role', 'reseller')
         .maybeSingle();
 
       if (!existingRole) {
         const { error: roleError } = await supabase
           .from('user_roles')
-          .insert({ user_id: profileData.id, role: 'reseller' });
+          .insert({ user_id: profileData.user_id, role: 'reseller' as any });
 
         if (roleError) throw roleError;
       }

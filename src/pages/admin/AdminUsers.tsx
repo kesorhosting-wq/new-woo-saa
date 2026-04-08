@@ -172,7 +172,7 @@ const AdminUsers: React.FC = () => {
                         <pre className="bg-white p-3 rounded-lg text-[8px] font-mono text-slate-600 overflow-x-auto border border-amber-200">
 {`INSERT INTO public.profiles (id, user_id, email, display_name, wallet_balance)
 SELECT id, id, email, split_part(email, '@', 1), 0
-FROM auth.users ON CONFLICT (id) DO NOTHING;`}
+FROM auth.users ON CONFLICT (user_id) DO NOTHING;`}
                         </pre>
                      </div>
                   </div>

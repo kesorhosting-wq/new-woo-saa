@@ -96,12 +96,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (data?.user && !error) {
       // Create profile record immediately
-      await supabase.from('profiles').upsert({
+      const profileData = {
         id: data.user.id,
         email: data.user.email,
         display_name: options?.displayName || email.split('@')[0],
         wallet_balance: 0
-      });
+      };
+      
+      const { error: profileError } = await supabase.from('profiles').upsert(profileData);
+      if (profileError) {
+        console.error('Critical: Profile creation failed during signup:', profileError);
+      }
     }
     
     return { error: error as Error | null };

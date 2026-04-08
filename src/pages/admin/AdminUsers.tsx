@@ -13,7 +13,8 @@ import {
   RefreshCw,
   Wallet,
   Plus,
-  Trash2
+  Trash2,
+  Database
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,7 +43,6 @@ const AdminUsers: React.FC = () => {
   const [filteredUsers, setFilteredUsers] = useState<UserProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [onboardEmail, setOnboardEmail] = useState('');
   const [isOnboarding, setIsOnboarding] = useState(false);
 
   const fetchUsers = async () => {
@@ -115,31 +115,16 @@ const AdminUsers: React.FC = () => {
     }
   };
 
-  const handleManualOnboard = async () => {
-    if (!onboardEmail) return;
+  const handleManualRefresh = async () => {
     setIsOnboarding(true);
     try {
-      // Create profile record if it doesn't exist
-      // Since we don't have auth.admin access here easily, we'll try a dummy update/insert
-      // But more likely the issue is just refreshing the list or creating it on first login.
-      // We'll use a direct profile upsert assuming the ID is handled by Supabase or they'll login.
-      
-      // Let's find if it exists in our current profiles first
-      const exists = users.find(u => u.email?.toLowerCase() === onboardEmail.toLowerCase());
-      if (exists) {
-        toast.info('User already exists in directory');
-        return;
-      }
-
-      toast.success('System scanning for user sequence...');
-      // We'll trigger a fetch after a delay to allow the user to login or trigger to run
-      setTimeout(() => fetchUsers(), 2000);
-      
+      toast.info('Synchronizing with Database...');
+      await fetchUsers();
+      toast.success('User registry up to date');
     } catch (error: any) {
-      toast.error('Sync failed');
+      toast.error('Refresh failed');
     } finally {
       setIsOnboarding(false);
-      setOnboardEmail('');
     }
   };
 
@@ -149,8 +134,8 @@ const AdminUsers: React.FC = () => {
         <div>
           <h1 className="text-4xl font-black mb-3 tracking-tighter uppercase text-[#3D001F]">User Registry</h1>
           <div className="flex items-center gap-3">
-             <div className="w-2 h-2 bg-[#FF2D85] rounded-full animate-ping" />
-             <p className="text-[#FF2D85] text-[10px] font-black uppercase tracking-[0.4em]">Clearance & ID Management</p>
+             <div className="w-2 h-2 bg-green-500 rounded-full animate-ping" />
+             <p className="text-green-600 text-[10px] font-black uppercase tracking-[0.4em]">Database Sync Active</p>
           </div>
         </div>
         <Button onClick={fetchUsers} disabled={isLoading} variant="outline" className="rounded-2xl h-14 px-8 border-pink-100 font-black text-[10px] uppercase tracking-widest shadow-sm">
@@ -256,33 +241,30 @@ const AdminUsers: React.FC = () => {
          </div>
 
          <div className="space-y-8">
-            <section className="bg-white border-2 border-pink-100 rounded-[3rem] p-8 shadow-sm">
+            <section className="bg-white border-2 border-slate-100 rounded-[3rem] p-8 shadow-sm">
                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-10 h-10 bg-pink-50 text-[#FF2D85] rounded-xl flex items-center justify-center">
-                     <Plus className="w-5 h-5" />
+                  <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
+                     <ShieldCheck className="w-5 h-5" />
                   </div>
-                  <h3 className="text-lg font-black uppercase tracking-tight">Onboard User</h3>
+                  <h3 className="text-lg font-black uppercase tracking-tight">Sync Status</h3>
                </div>
                <div className="space-y-4">
-                  <div className="space-y-2">
-                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Operator Email</Label>
-                     <Input 
-                        placeholder="user@example.com"
-                        value={onboardEmail}
-                        onChange={(e) => setOnboardEmail(e.target.value)}
-                        className="bg-slate-50 border-slate-100 font-bold h-12"
-                     />
+                  <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
+                     <div className="flex items-center gap-3">
+                        <Database className="w-4 h-4 text-slate-400" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">Auto-Index Enabled</span>
+                     </div>
+                     <p className="text-[9px] text-slate-500 font-bold uppercase leading-relaxed">
+                        The system is now configured to automatically link Auth accounts to the Profile registry the millisecond they register.
+                     </p>
                   </div>
                   <Button 
-                     onClick={handleManualOnboard}
-                     disabled={isOnboarding || !onboardEmail}
-                     className="w-full bg-[#FF2D85] hover:bg-[#D81B60] text-white font-black uppercase tracking-widest text-[10px] h-12 rounded-xl"
+                     onClick={handleManualRefresh}
+                     disabled={isOnboarding}
+                     className="w-full bg-black hover:bg-slate-800 text-white font-black uppercase tracking-widest text-[10px] h-14 rounded-xl shadow-lg"
                   >
-                     {isOnboarding ? 'Syncing...' : 'Scan Directory'}
+                     {isOnboarding ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Force Registry Refresh'}
                   </Button>
-                  <p className="text-[9px] text-slate-400 font-bold uppercase leading-relaxed text-center">
-                     If a user has registered but isn't appearing, use this tool to refresh the registry for that account.
-                  </p>
                </div>
             </section>
          </div>

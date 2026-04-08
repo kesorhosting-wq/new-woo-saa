@@ -6,6 +6,7 @@ import { Gamepad2, Mail, Lock, ArrowRight, Github, Chrome, ShieldCheck } from 'l
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -20,15 +21,30 @@ const AuthPage: React.FC = () => {
     setIsLoading(true);
     try {
       if (isLogin) {
-        await signIn(email, password);
+        const { error } = await signIn(email, password);
+        if (error) throw error;
         toast({ title: "Welcome back!", description: "Successfully logged in." });
+        navigate('/');
       } else {
-        await signUp(email, password);
-        toast({ title: "Account created!", description: "Please check your email to verify." });
+        const { error } = await signUp(email, password);
+        if (error) throw error;
+        
+        // Check if session was created automatically (email confirm OFF)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          toast({ title: "Success!", description: "Account created and logged in." });
+          navigate('/');
+        } else {
+          toast({ 
+            title: "Verification Required", 
+            description: "Please check your email to verify your account before logging in.",
+            variant: "default" 
+          });
+          setIsLogin(true); // Switch to login mode so they can sign in after verifying
+        }
       }
-      navigate('/');
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Auth Error", description: error.message, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }

@@ -170,8 +170,8 @@ const AdminUsers: React.FC = () => {
                            Run this in your Supabase SQL Editor to instantly move all users into this list:
                         </p>
                         <pre className="bg-white p-3 rounded-lg text-[8px] font-mono text-slate-600 overflow-x-auto border border-amber-200">
-{`INSERT INTO public.profiles (id, email, display_name, wallet_balance)
-SELECT id, email, split_part(email, '@', 1), 0
+{`INSERT INTO public.profiles (id, user_id, email, display_name, wallet_balance)
+SELECT id, id, email, split_part(email, '@', 1), 0
 FROM auth.users ON CONFLICT (id) DO NOTHING;`}
                         </pre>
                      </div>

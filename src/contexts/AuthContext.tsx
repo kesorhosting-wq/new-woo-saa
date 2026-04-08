@@ -98,6 +98,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Create profile record immediately
       const profileData = {
         id: data.user.id,
+        user_id: data.user.id,
         email: data.user.email,
         display_name: options?.displayName || email.split('@')[0],
         wallet_balance: 0
@@ -129,6 +130,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (!existingProfile) {
         await supabase.from('profiles').insert({
           id: data.user.id,
+          user_id: data.user.id,
           email: data.user.email,
           display_name: data.user.user_metadata?.display_name || data.user.email?.split('@')[0],
           wallet_balance: 0

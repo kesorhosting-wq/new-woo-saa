@@ -9,6 +9,8 @@ import AdminPayments from './admin/AdminPayments';
 import AdminVerify from './admin/AdminVerify';
 import AdminHome from './admin/AdminHome';
 import AdminResellersTab from './admin/AdminResellersTab';
+import AdminWallet from './admin/AdminWallet';
+import AdminUsers from './admin/AdminUsers';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, ShieldAlert } from 'lucide-react';
 
@@ -62,8 +64,9 @@ const AdminPage: React.FC = () => {
         <Route path="/payments" element={<AdminPayments />} />
         <Route path="/verification" element={<AdminVerify />} />
         <Route path="/resellers" element={<AdminResellersTab />} />
+        <Route path="/wallet" element={<AdminWallet />} />
+        <Route path="/users" element={<AdminUsers />} />
         <Route path="/analytics" element={<div className="flex items-center justify-center h-64 text-slate-300 font-black uppercase tracking-[0.3em] bg-slate-50 rounded-[3rem] border border-dashed border-slate-200">Analytics Terminal Offline</div>} />
-        <Route path="/users" element={<div className="flex items-center justify-center h-64 text-slate-300 font-black uppercase tracking-[0.3em] bg-slate-50 rounded-[3rem] border border-dashed border-slate-200">User Directory Offline</div>} />
         <Route path="/settings" element={<div className="flex items-center justify-center h-64 text-slate-300 font-black uppercase tracking-[0.3em] bg-slate-50 rounded-[3rem] border border-dashed border-slate-200">System Parameters Offline</div>} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>

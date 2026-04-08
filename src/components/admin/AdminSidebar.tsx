@@ -14,7 +14,8 @@ import {
   ChevronLeft,
   Shield,
   Home,
-  Key
+  Key,
+  Wallet
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,6 +35,7 @@ const AdminSidebar: React.FC = () => {
     { name: 'Verification', icon: <Shield className="w-5 h-5" />, path: '/admin/verification' },
     { name: 'Gateway Config', icon: <CreditCard className="w-5 h-5" />, path: '/admin/payments' },
     { name: 'User Directory', icon: <Users className="w-5 h-5" />, path: '/admin/users' },
+    { name: 'Wallet Asset', icon: <Wallet className="w-5 h-5" />, path: '/admin/wallet' },
     { name: 'API Resellers', icon: <Key className="w-5 h-5" />, path: '/admin/resellers' },
   ];
 
